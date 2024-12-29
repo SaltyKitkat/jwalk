@@ -197,7 +197,7 @@ impl Error {
         Error {
             depth: dent.depth(),
             inner: ErrorInner::Io {
-                path: Some(dent.path()),
+                path: Some(dent.path().to_path_buf()),
                 err,
             },
         }

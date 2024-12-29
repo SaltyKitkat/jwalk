@@ -1,5 +1,7 @@
 use std::iter::Peekable;
 
+use dir_entry::DirEntryInner;
+
 use super::*;
 use crate::Result;
 
@@ -79,17 +81,24 @@ impl<C: ClientState> Iterator for DirEntryIter<C> {
                     Ok(dir_entry) => dir_entry,
                     Err(err) => return Some(Err(err)),
                 };
-                // 2.2 If dir_entry has a read_children_path means we need to read a new
+                // 2.2 If dir_entry has a read_children means we need to read a new
                 // directory and push those results onto read_dir_results_stack
-                if dir_entry.read_children_path.is_some() {
-                    let iter = match self.read_dir_iter.as_mut().ok_or_else(Error::busy) {
-                        Ok(iter) => iter,
-                        Err(err) => return Some(Err(err)),
-                    };
-                    if let Err(err) =
-                        Self::push_next_read_dir_results(iter, &mut self.read_dir_results_stack)
-                    {
-                        dir_entry.read_children_error = Some(Box::new(err));
+                if let DirEntryInner::Dir {
+                    path: _,
+                    read_children,
+                    read_children_error,
+                } = &mut dir_entry.inner
+                {
+                    if *read_children {
+                        let iter = match self.read_dir_iter.as_mut().ok_or_else(Error::busy) {
+                            Ok(iter) => iter,
+                            Err(err) => return Some(Err(err)),
+                        };
+                        if let Err(err) =
+                            Self::push_next_read_dir_results(iter, &mut self.read_dir_results_stack)
+                        {
+                            *read_children_error = Some(Box::new(err));
+                        }
                     }
                 }
 

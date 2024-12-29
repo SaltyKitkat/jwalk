@@ -44,7 +44,7 @@
 //!     .process_read_dir(|depth, path, read_dir_state, children| {
 //!         // 1. Custom sort
 //!         children.sort_by(|a, b| match (a, b) {
-//!             (Ok(a), Ok(b)) => a.file_name.cmp(&b.file_name),
+//!             (Ok(a), Ok(b)) => a.file_name().cmp(&b.file_name()),
 //!             (Ok(_), Err(_)) => Ordering::Less,
 //!             (Err(_), Ok(_)) => Ordering::Greater,
 //!             (Err(_), Err(_)) => Ordering::Equal,
@@ -52,7 +52,7 @@
 //!         // 2. Custom filter
 //!         children.retain(|dir_entry_result| {
 //!             dir_entry_result.as_ref().map(|dir_entry| {
-//!                 dir_entry.file_name
+//!                 dir_entry.file_name()
 //!                     .to_str()
 //!                     .map(|s| s.starts_with('.'))
 //!                     .unwrap_or(false)
@@ -62,7 +62,7 @@
 //!         children.iter_mut().for_each(|dir_entry_result| {
 //!             if let Ok(dir_entry) = dir_entry_result {
 //!                 if dir_entry.depth == 2 {
-//!                     dir_entry.read_children_path = None;
+//!                     dir_entry.set_read_children(false);
 //!                 }
 //!             }
 //!         });
@@ -124,7 +124,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::core::{ReadDir, ReadDirSpec};
+use crate::core::{DirEntryInner, ReadDir, ReadDirSpec};
 
 pub use crate::core::{DirEntry, DirEntryIter, Error};
 pub use rayon;
@@ -362,11 +362,11 @@ fn process_dir_entry_result<C: ClientState>(
 ) -> Result<DirEntry<C>> {
     match dir_entry_result {
         Ok(mut dir_entry) => {
-            if follow_links && dir_entry.file_type.is_symlink() {
+            if follow_links && dir_entry.file_type().is_symlink() {
                 dir_entry = dir_entry.follow_symlink()?;
             }
 
-            if dir_entry.depth == 0 && dir_entry.file_type.is_symlink() {
+            if dir_entry.depth == 0 && dir_entry.file_type().is_symlink() {
                 // As a special case, if we are processing a root entry, then we
                 // always follow it even if it's a symlink and follow_links is
                 // false. We are careful to not let this change the semantics of
@@ -375,9 +375,9 @@ fn process_dir_entry_result<C: ClientState>(
                 // should report itself as a symlink. When it's enabled, it
                 // should always report itself as the target.
                 let metadata = fs::metadata(dir_entry.path())
-                    .map_err(|err| Error::from_path(0, dir_entry.path(), err))?;
+                    .map_err(|err| Error::from_path(0, dir_entry.path().to_path_buf(), err))?;
                 if metadata.file_type().is_dir() {
-                    dir_entry.read_children_path = Some(Arc::from(dir_entry.path()));
+                    dir_entry.inner = DirEntryInner::from_path(&dir_entry.path(), &metadata);
                 }
             }
 
@@ -409,7 +409,11 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
         let root_entry = DirEntry::from_path(0, &self.root, false, follow_link_ancestors);
         let root_parent_path = root_entry
             .as_ref()
-            .map(|root| root.parent_path().to_owned())
+            .map(|root| {
+                root.parent_path()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_default()
+            })
             .unwrap_or_default();
         let mut root_entry_results = vec![process_dir_entry_result(root_entry, follow_links)];
         if let Some(process_read_dir) = process_read_dir.as_ref() {
@@ -462,7 +466,7 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
 
                         let dir_entry = match DirEntry::from_entry(
                             read_dir_contents_depth,
-                            path.clone(),
+                            &path,
                             &fs_dir_entry,
                             follow_link_ancestors.clone(),
                         ) {
@@ -470,7 +474,7 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
                             Err(err) => return Some(Err(err)),
                         };
 
-                        if skip_hidden && is_hidden(&dir_entry.file_name) {
+                        if skip_hidden && is_hidden(&dir_entry.file_name()) {
                             return None;
                         }
 
@@ -480,7 +484,7 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
 
                 if sort {
                     dir_entry_results.sort_by(|a, b| match (a, b) {
-                        (Ok(a), Ok(b)) => a.file_name.cmp(&b.file_name),
+                        (Ok(a), Ok(b)) => a.file_name().cmp(&b.file_name()),
                         (Ok(_), Err(_)) => Ordering::Less,
                         (Err(_), Ok(_)) => Ordering::Greater,
                         (Err(_), Err(_)) => Ordering::Equal,

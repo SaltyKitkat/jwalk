@@ -26,4 +26,6 @@ pub use error::Error;
 pub use read_dir::ReadDir;
 pub use read_dir_spec::ReadDirSpec;
 
+pub(crate) use dir_entry::DirEntryInner;
+
 use crate::{ClientState, Parallelism};

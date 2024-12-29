@@ -3,7 +3,6 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 use std::env;
 use std::fs;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -801,7 +800,7 @@ fn local_paths(walk_dir: WalkDir) -> Vec<String> {
         .into_iter()
         .map(|each_result| {
             let each_entry = each_result.unwrap();
-            if let Some(err) = each_entry.read_children_error.as_ref() {
+            if let Some(err) = each_entry.read_children_error() {
                 panic!("should not encounter any child errors :{:?}", err);
             }
             let path = each_entry.path();
@@ -953,7 +952,7 @@ fn walk_file() {
     let walk_dir = WalkDir::new(test_dir.join("a.txt"));
     let mut iter = walk_dir.into_iter();
     assert_eq!(
-        iter.next().unwrap().unwrap().file_name.to_str().unwrap(),
+        iter.next().unwrap().unwrap().file_name().to_str().unwrap(),
         "a.txt"
     );
     assert!(iter.next().is_none());
@@ -965,7 +964,7 @@ fn walk_file_serial() {
     let walk_dir = WalkDir::new(test_dir.join("a.txt")).parallelism(Parallelism::Serial);
     let mut iter = walk_dir.into_iter();
     assert_eq!(
-        iter.next().unwrap().unwrap().file_name.to_str().unwrap(),
+        iter.next().unwrap().unwrap().file_name().to_str().unwrap(),
         "a.txt"
     );
     assert!(iter.next().is_none());
@@ -1005,7 +1004,7 @@ fn error_when_path_removed_durring_iteration() {
 
     // group 2 content error IS set, since path is removed when try read_dir for
     // group 2 path.
-    let _ = group_2.read_children_error.is_some();
+    let _ = group_2.read_children_error().is_some();
 
     // done!
     assert!(iter.next().is_none());
@@ -1017,7 +1016,7 @@ fn walk_root() {
         .max_depth(1)
         .sort(true)
         .into_iter()
-        .filter_map(|each| Some(each.ok()?.path()))
+        .filter_map(|each| Some(each.ok()?.path().to_path_buf()))
         .collect();
     assert_eq!(paths.first().unwrap().to_str().unwrap(), "/");
 }
@@ -1050,7 +1049,7 @@ fn walk_relative_1() {
     );
 
     let root_dir_entry = WalkDir::new("..").into_iter().next().unwrap().unwrap();
-    assert_eq!(root_dir_entry.file_name.deref(), "..");
+    assert_eq!(root_dir_entry.file_name(), "..");
 }
 
 #[test]
@@ -1077,7 +1076,7 @@ fn walk_relative_2() {
     );
 
     let root_dir_entry = WalkDir::new(".").into_iter().next().unwrap().unwrap();
-    assert_eq!(root_dir_entry.file_name.deref(), ".");
+    assert_eq!(root_dir_entry.file_name(), ".");
 }
 
 #[test]
@@ -1092,7 +1091,7 @@ fn filter_groups_with_process_read_dir() {
                     each_result
                         .as_ref()
                         .map(|dir_entry| {
-                            !dir_entry.file_name.to_string_lossy().starts_with("group")
+                            !dir_entry.file_name().to_string_lossy().starts_with("group")
                         })
                         .unwrap_or(true)
                 });
@@ -1111,8 +1110,8 @@ fn filter_group_children_with_process_read_dir() {
             .process_read_dir(|_depth, _path, _parent, children| {
                 children.iter_mut().for_each(|each_result| {
                     if let Ok(each) = each_result {
-                        if each.file_name.to_string_lossy().starts_with("group") {
-                            each.read_children_path = None;
+                        if each.file_name().to_string_lossy().starts_with("group") {
+                            each.set_read_children(false);
                         }
                     }
                 });
@@ -1137,7 +1136,8 @@ fn test_read_linux() {
     let linux_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("benches/assets/linux_checkout");
     if linux_dir.exists() {
         for each in WalkDir::new(linux_dir) {
-            let path = each.unwrap().path();
+            let entry = each.unwrap();
+            let path = entry.path();
             assert!(path.exists(), "{:?}", path);
         }
     }

@@ -51,11 +51,11 @@ fn main() {
         {
             match dir_entry_result {
                 Ok(dir_entry) => {
-                    if dir_entry.file_type.is_dir() {
+                    if dir_entry.file_type().is_dir() {
                         dirs += 1;
-                    } else if dir_entry.file_type.is_file() {
+                    } else if dir_entry.file_type().is_file() {
                         files += 1;
-                    } else if dir_entry.file_type.is_symlink() {
+                    } else if dir_entry.file_type().is_symlink() {
                         symlinks += 1
                     }
                 }
