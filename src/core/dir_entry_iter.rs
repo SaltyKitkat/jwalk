@@ -89,7 +89,7 @@ impl<C: ClientState> Iterator for DirEntryIter<C> {
                     if let Err(err) =
                         Self::push_next_read_dir_results(iter, &mut self.read_dir_results_stack)
                     {
-                        dir_entry.read_children_error = Some(err);
+                        dir_entry.read_children_error = Some(Box::new(err));
                     }
                 }
 

@@ -1,6 +1,7 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs::{self, FileType};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -17,7 +18,7 @@ pub struct DirEntry<C: ClientState> {
     /// started.
     pub depth: usize,
     /// File name of this entry without leading path component.
-    pub file_name: OsString,
+    pub file_name: Box<OsStr>,
     /// File type for the file/directory that this entry points at.
     pub file_type: FileType,
     /// Field where clients can store state from within the The
@@ -34,7 +35,7 @@ pub struct DirEntry<C: ClientState> {
     pub read_children_path: Option<Arc<Path>>,
     /// If `read_children_path` is set and resulting `fs::read_dir` generates an error
     /// then that error is stored here.
-    pub read_children_error: Option<Error>,
+    pub read_children_error: Option<Box<Error>>,
     // True if [`follow_links`] is `true` AND was created from a symlink path.
     follow_link: bool,
     // Origins of symlinks followed to get to this entry.
@@ -51,9 +52,9 @@ impl<C: ClientState> DirEntry<C> {
         let file_type = fs_dir_entry
             .file_type()
             .map_err(|err| Error::from_path(depth, fs_dir_entry.path(), err))?;
-        let file_name = fs_dir_entry.file_name();
+        let file_name: Box<OsStr> = fs_dir_entry.file_name().into();
         let read_children_path: Option<Arc<Path>> = if file_type.is_dir() {
-            Some(Arc::from(parent_path.join(&file_name)))
+            Some(Arc::from(parent_path.join(file_name.deref())))
         } else {
             None
         };
@@ -95,7 +96,7 @@ impl<C: ClientState> DirEntry<C> {
 
         Ok(DirEntry {
             depth,
-            file_name: root_name.to_owned(),
+            file_name: root_name.into(),
             file_type: metadata.file_type(),
             parent_path: Arc::from(path.parent().map(Path::to_path_buf).unwrap_or_default()),
             read_children_path,
@@ -139,7 +140,7 @@ impl<C: ClientState> DirEntry<C> {
     ///
     /// The path is created by joining `parent_path` with `file_name`.
     pub fn path(&self) -> PathBuf {
-        self.parent_path.join(&self.file_name)
+        self.parent_path.join(self.file_name.deref())
     }
 
     /// Returns `true` if and only if this entry was created from a symbolic

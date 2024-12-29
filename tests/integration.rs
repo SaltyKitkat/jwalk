@@ -3,6 +3,7 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 use std::env;
 use std::fs;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -1049,7 +1050,7 @@ fn walk_relative_1() {
     );
 
     let root_dir_entry = WalkDir::new("..").into_iter().next().unwrap().unwrap();
-    assert_eq!(&root_dir_entry.file_name, "..");
+    assert_eq!(root_dir_entry.file_name.deref(), "..");
 }
 
 #[test]
@@ -1076,7 +1077,7 @@ fn walk_relative_2() {
     );
 
     let root_dir_entry = WalkDir::new(".").into_iter().next().unwrap().unwrap();
-    assert_eq!(&root_dir_entry.file_name, ".");
+    assert_eq!(root_dir_entry.file_name.deref(), ".");
 }
 
 #[test]
