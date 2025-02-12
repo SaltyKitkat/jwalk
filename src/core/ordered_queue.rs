@@ -141,14 +141,11 @@ where
                 return Err(TryRecvError::Disconnected);
             }
 
-            match self.receiver.try_recv() {
+            match self.receiver.recv() {
                 Ok(ordered) => {
                     self.receive_buffer.push(ordered);
                 }
-                Err(err) => match err {
-                    TryRecvError::Empty => thread::yield_now(),
-                    TryRecvError::Disconnected => break,
-                },
+                Err(_) => break,
             }
         }
 

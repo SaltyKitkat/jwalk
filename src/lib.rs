@@ -464,6 +464,10 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
                             }
                         };
 
+                        if skip_hidden && is_hidden(&fs_dir_entry.file_name()) {
+                            return None;
+                        }
+
                         let dir_entry = match DirEntry::from_entry(
                             read_dir_contents_depth,
                             &path,
@@ -473,10 +477,6 @@ impl<C: ClientState> IntoIterator for WalkDirGeneric<C> {
                             Ok(dir_entry) => dir_entry,
                             Err(err) => return Some(Err(err)),
                         };
-
-                        if skip_hidden && is_hidden(&dir_entry.file_name()) {
-                            return None;
-                        }
 
                         Some(process_dir_entry_result(Ok(dir_entry), follow_links))
                     })

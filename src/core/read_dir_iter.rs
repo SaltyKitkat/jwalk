@@ -35,10 +35,8 @@ impl<C: ClientState> ReadDirIter<C> {
             }
         } else {
             let stop = Arc::new(AtomicBool::new(false));
-            let read_dir_result_queue = new_ordered_queue(stop.clone(), Ordering::Strict);
-            let (read_dir_result_queue, read_dir_result_iter) = read_dir_result_queue;
-            let read_dir_spec_queue = new_ordered_queue(stop.clone(), Ordering::Relaxed);
-            let (read_dir_spec_queue, read_dir_spec_iter) = read_dir_spec_queue;
+            let (read_dir_result_queue, read_dir_result_iter) = new_ordered_queue(stop.clone(), Ordering::Strict);
+            let (read_dir_spec_queue, read_dir_spec_iter) = new_ordered_queue(stop.clone(), Ordering::Relaxed);
 
             for (i, read_dir_spec) in read_dir_specs.into_iter().enumerate() {
                 read_dir_spec_queue

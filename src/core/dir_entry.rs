@@ -41,7 +41,6 @@ impl<C: ClientState> DirEntry<C> {
             .file_type()
             .map_err(|err| Error::from_path(depth, fs_dir_entry.path(), err))?;
         let inner = DirEntryInner::from_entry(parent_path, fs_dir_entry, file_type);
-        // let path = fs_dir_entry.path();
         Ok(DirEntry {
             depth,
             file_type,
@@ -133,10 +132,9 @@ impl<C: ClientState> DirEntry<C> {
     ///
     /// # Platform behavior
     ///
-    /// This always calls [`std::fs::symlink_metadata`].
+    /// This calls [`std::fs::symlink_metadata`] if [`follow_links`] is disabled.
     ///
-    /// If this entry is a symbolic link and [`follow_links`] is enabled, then
-    /// [`std::fs::metadata`] is called instead.
+    /// If [`follow_links`] is enabled, then [`std::fs::metadata`] is called instead.
     ///
     /// # Errors
     ///
